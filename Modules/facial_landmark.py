@@ -22,8 +22,8 @@ out = cv2.resize(out, (64, 64))  # Resize ke 10x10 piksel
 H, W = out.shape[:2]  # Ambil ukuran dari wajah yang terdeteksi
 
 dummy = np.zeros((H, W), dtype=np.uint8)
-for h in range((0) + (30)):
-    for w in range((0) + (30)):
+for h in range((0) + (H)):
+    for w in range((0) + (W)):
         print(f"{h} {w} = {out[h, w]}")
         dummy[h, w] = out[h, w]
 

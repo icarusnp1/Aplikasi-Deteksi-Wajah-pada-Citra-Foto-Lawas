@@ -10,16 +10,17 @@ from PyQt5.uic import loadUi
 from PyQt5.QtCore import Qt
 import sys
 import cv2
-from image_processing import enhance_image, denoise_image, sharpen_image, restore_color, Biner, Grayscale
+from Modules.image_processing import enhance_image, denoise_image, sharpen_image, restore_color, Biner, Grayscale
 import numpy as np
 # fungsi face detection
-from image_processing import detect_faces
-from image_processing import restore_face_color
+from Modules.image_processing import detect_faces
+from Modules.image_processing import restore_face_color
 
 class ShowImage(QMainWindow):
     def __init__(self):
         super(ShowImage, self).__init__()
-        loadUi(r'C:\Perkuliahan\PCD (TUBES)\Aplikasi-Deteksi-Wajah-pada-Citra-Foto-Lawas\GUI.ui', self)
+        loadUi("Modules\GUI.ui", self)
+        
         self.image_to_save = None
 
         self.image_label1 = QtWidgets.QLabel(self.scrollArea1)
@@ -136,10 +137,9 @@ class ShowImage(QMainWindow):
             self.displayImage(result)
 
     def apply_face_detection(self):
-        PREDICTOR_PATH = r"C:\Perkuliahan\PCD (TUBES)\Aplikasi-Deteksi-Wajah-pada-Citra-Foto-Lawas\shape_predictor_68_face_landmarks.dat"
         if self.imagePath:
             img = cv2.imread(self.imagePath)
-            result = detect_faces(img, PREDICTOR_PATH)
+            result = detect_faces(img)
             self.displayImage(result)
         else:
             print("Gambar belum dimuat.")

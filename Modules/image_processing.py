@@ -152,52 +152,22 @@ def plot_gray_histogram(original_img, processed_img):
     ax.set_xticklabels(labels)
     ax.legend()
 
-    # Tampilkan histogram
     plt.show()
 
-def detect_faces(im, PREDICTOR_PATH):
-    predictor = dlib.shape_predictor(PREDICTOR_PATH)
+def detect_faces(image):
     detector = dlib.get_frontal_face_detector()
+    faces = detector(image, 1)
+
+    for face in faces:
+        x, y, w, h = face.left(), face.top(), face.width(), face.height()
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     class TooManyFaces(Exception):
-        pass
+        def __init__(self, message="Terdeteksi terlalu banyak wajah."):
+            self.message = message
+            super().__init__(self.message)
 
-    class NoFaces(Exception):
-        pass
-
-    def get_landmarks_and_rect(im):
-        rects = detector(im, 1)
-        if len(rects) > 1:
-            raise TooManyFaces
-        if len(rects) == 0:
-            raise NoFaces
-        return np.matrix([[p.x, p.y] for p in predictor(im, rects[0]).parts()]), rects[0]
-
-    def annotate_landmarks_and_box(im, landmarks, rect):
-        im = im.copy()
-        # Gambar landmark
-        for idx, point in enumerate(landmarks):
-            pos = (point[0, 0], point[0, 1])
-            cv2.putText(im, str(idx), pos,
-                        fontFace=cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
-                        fontScale=0.4,
-                        color=(0, 0, 255))
-            cv2.circle(im, pos, 3, color=(0, 255, 255))
-        # Gambar kotak di sekitar wajah
-        x1, y1, x2, y2 = rect.left(), rect.top(), rect.right(), rect.bottom()
-        cv2.rectangle(im, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        return im
-
-    try:
-        landmarks, rect = get_landmarks_and_rect(im)
-        image_with_landmarks = annotate_landmarks_and_box(im, landmarks, rect)
-        return image_with_landmarks
-    except TooManyFaces:
-        print("Terdeteksi lebih dari satu wajah.")
-        return im
-    except NoFaces:
-        print("Tidak ada wajah terdeteksi.")
-        return im
+    return image
 
 def restore_face_color(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
