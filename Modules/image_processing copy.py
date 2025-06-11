@@ -175,13 +175,21 @@ def detect_faces(image, predictor_path='Modules/shape_predictor_68_face_landmark
 
     for face in faces:
         landmarks = predictor(input_for_dlib, face)
+
+        # --- Ekstraksi landmark ---
         # Mulut (48-67)
         mouth = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(48, 68)])
         # Mata kiri (36-41), mata kanan (42-47)
         left_eye = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(36, 42)])
         right_eye = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(42, 48)])
 
-        # Eye Aspect Ratio (EAR)
+        # --- Hitung metrik ekspresi ---
+        # Mouth Aspect Ratio (MAR) untuk senyum
+        mouth_width = np.linalg.norm(mouth[6] - mouth[0])
+        mouth_height = np.linalg.norm(mouth[3] - mouth[9])
+        mouth_ratio = mouth_height / mouth_width if mouth_width != 0 else 0
+
+        # Eye Aspect Ratio (EAR) untuk ngantuk
         def eye_aspect_ratio(eye):
             A = np.linalg.norm(eye[1] - eye[5])
             B = np.linalg.norm(eye[2] - eye[4])
@@ -191,49 +199,30 @@ def detect_faces(image, predictor_path='Modules/shape_predictor_68_face_landmark
         right_ear = eye_aspect_ratio(right_eye)
         avg_ear = (left_ear + right_ear) / 2.0
 
-        # Deteksi senyum: sudut mulut lebih tinggi dari tengah (mulut membentuk U)
-        left_corner_y = mouth[0][1]
-        right_corner_y = mouth[6][1]
-        top_lip_y = mouth[3][1]
-        bottom_lip_y = mouth[9][1]
-        # Senyum jika sudut kiri & kanan lebih tinggi dari tengah bawah bibir
-        is_smile = left_corner_y < bottom_lip_y and right_corner_y < bottom_lip_y and top_lip_y < bottom_lip_y
+        # --- Penentuan ekspresi ---
+        # Threshold dapat disesuaikan sesuai kebutuhan dataset
+        EAR_SLEEP = 0.20   # threshold ngantuk
+        MAR_SMILE = 0.38   # threshold senyum (mulut terbuka)
+        MOUTH_WIDTH_RATIO_SMILE = 0.45  # threshold lebar mulut relatif terhadap lebar wajah
 
-        # Mulut terbuka jika jarak bibir atas dan bawah cukup besar
-        mouth_open_threshold = 8  # threshold piksel, bisa disesuaikan
-        mouth_open = abs(bottom_lip_y - top_lip_y) > mouth_open_threshold
+        # Hitung rasio lebar mulut terhadap lebar wajah
+        face_width = w if w != 0 else 1
+        mouth_width_ratio = mouth_width / face_width
 
-        # Threshold EAR untuk ngantuk (mata tertutup)
-        EAR_SLEEP = 0.20
-
+        # Deteksi ekspresi
         if avg_ear < EAR_SLEEP:
             expression = "Ngantuk"
-        elif avg_ear >= EAR_SLEEP and is_smile and mouth_open:
+        # Senyum jika mulut terbuka (MAR) atau mulut melebar (mouth_width_ratio)
+        elif mouth_ratio > MAR_SMILE or mouth_width_ratio > MOUTH_WIDTH_RATIO_SMILE:
             expression = "Senyum"
-        elif avg_ear >= EAR_SLEEP and not mouth_open:
-            expression = "Netral"
         else:
             expression = "Netral"
 
+        # --- Gambar kotak dan label ekspresi ---
         x, y, w, h = face.left(), face.top(), face.width(), face.height()
         cv2.rectangle(draw_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(draw_img, expression, (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        
-        total_faces = len(faces)
-        cv2.putText(draw_img, f"Total Wajah: {total_faces}", (10, 25),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-        # --- Gambar titik landmark dan nomornya ---
-        # Untuk menonaktifkan fitur ini, cukup beri komentar pada blok di bawah ini
-        # for i in range(68):
-        #     px = landmarks.part(i).x
-        #     py = landmarks.part(i).y
-        #     cv2.circle(draw_img, (px, py), 2, (255, 0, 0), -1)
-        #     cv2.putText(draw_img, str(i), (px + 2, py - 2), cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 255), 1)
-
-    # Tampilkan total wajah di pojok kiri atas
-
 
     draw_img = cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB)
     return draw_img
