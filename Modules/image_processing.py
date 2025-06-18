@@ -226,11 +226,11 @@ def detect_faces(image, predictor_path='Modules/shape_predictor_68_face_landmark
 
         # --- Gambar titik landmark dan nomornya ---
         # Untuk menonaktifkan fitur ini, cukup beri komentar pada blok di bawah ini
-        # for i in range(68):
-        #     px = landmarks.part(i).x
-        #     py = landmarks.part(i).y
-        #     cv2.circle(draw_img, (px, py), 2, (255, 0, 0), -1)
-        #     cv2.putText(draw_img, str(i), (px + 2, py - 2), cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 255), 1)
+        for i in range(68):
+            px = landmarks.part(i).x
+            py = landmarks.part(i).y
+            cv2.circle(draw_img, (px, py), 2, (255, 0, 0), -1)
+            cv2.putText(draw_img, str(i), (px + 2, py - 2), cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 255), 1)
 
     # Tampilkan total wajah di pojok kiri atas
 
@@ -270,4 +270,3 @@ def restore_face_color(image, predictor_path='Modules/shape_predictor_68_face_la
         image[y:y+h, x:x+w] = restored_face
 
     return image
-
