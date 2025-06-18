@@ -175,9 +175,15 @@ def detect_faces(image, predictor_path='Modules/shape_predictor_68_face_landmark
 
     for face in faces:
         landmarks = predictor(input_for_dlib, face)
-        # Mulut (48-67)
+
+        # Landmark penting
+        p48 = landmarks.part(48)
+        p54 = landmarks.part(54)
+        p51 = landmarks.part(51)
+        p57 = landmarks.part(57)
+
+        # Mulut (48-67), mata kiri (36-41), mata kanan (42-47)
         mouth = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(48, 68)])
-        # Mata kiri (36-41), mata kanan (42-47)
         left_eye = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(36, 42)])
         right_eye = np.array([(landmarks.part(n).x, landmarks.part(n).y) for n in range(42, 48)])
 
@@ -187,54 +193,116 @@ def detect_faces(image, predictor_path='Modules/shape_predictor_68_face_landmark
             B = np.linalg.norm(eye[2] - eye[4])
             C = np.linalg.norm(eye[0] - eye[3])
             return (A + B) / (2.0 * C)
+
         left_ear = eye_aspect_ratio(left_eye)
         right_ear = eye_aspect_ratio(right_eye)
         avg_ear = (left_ear + right_ear) / 2.0
 
-        # Deteksi senyum: sudut mulut lebih tinggi dari tengah (mulut membentuk U)
-        left_corner_y = mouth[0][1]
-        right_corner_y = mouth[6][1]
-        top_lip_y = mouth[3][1]
-        bottom_lip_y = mouth[9][1]
-        # Senyum jika sudut kiri & kanan lebih tinggi dari tengah bawah bibir
-        is_smile = left_corner_y < bottom_lip_y and right_corner_y < bottom_lip_y and top_lip_y < bottom_lip_y
+        # Titik y penting
+        left_corner_y = p48.y
+        right_corner_y = p54.y
+        top_lip_y = p51.y
+        bottom_lip_y = p57.y
 
-        # Mulut terbuka jika jarak bibir atas dan bawah cukup besar
-        mouth_open_threshold = 8  # threshold piksel, bisa disesuaikan
-        mouth_open = abs(bottom_lip_y - top_lip_y) > mouth_open_threshold
-
-        # Threshold EAR untuk ngantuk (mata tertutup)
+        # Threshold
         EAR_SLEEP = 0.20
+        SMILE_CORNER_DIFF = 10
+        MOUTH_OPEN_THRESHOLD = 8
 
+        left_corner_diff = bottom_lip_y - left_corner_y
+        right_corner_diff = bottom_lip_y - right_corner_y
+        mouth_distance = abs(bottom_lip_y - top_lip_y)
+
+        # Deteksi senyum
+        is_smile = (
+            left_corner_diff >= SMILE_CORNER_DIFF and
+            right_corner_diff >= SMILE_CORNER_DIFF and
+            top_lip_y < bottom_lip_y
+        )
+
+        # Deteksi mulut terbuka
+        mouth_open = mouth_distance > MOUTH_OPEN_THRESHOLD
+
+        # Ekspresi akhir
         if avg_ear < EAR_SLEEP:
             expression = "Ngantuk"
-        elif avg_ear >= EAR_SLEEP and is_smile and mouth_open:
+        elif is_smile:
             expression = "Senyum"
-        elif avg_ear >= EAR_SLEEP and not mouth_open:
+        elif not mouth_open:
             expression = "Netral"
         else:
             expression = "Netral"
 
+        # === Cetak ke TERMINAL ===
+        print(f"\nTitik 48 (sudut kiri)        : (x={p48.x}, y={p48.y})")
+        print(f"Titik 54 (sudut kanan)       : (x={p54.x}, y={p54.y})")
+        print(f"Titik 51 (bibir atas tengah) : (x={p51.x}, y={p51.y})")
+        print(f"Titik 57 (bibir bawah tengah): (x={p57.x}, y={p57.y})")
+
+        print("\nPerhitungan:")
+        print(f"Jarak bibir: |{p51.y} - {p57.y}| = {mouth_distance} piksel")
+
+        print(f"\nSudut kiri & kanan mulut: y={p48.y} & y={p54.y}")
+        if p48.y < p57.y and p54.y < p57.y:
+            print(f"➤ Keduanya lebih tinggi dari bibir bawah (y={p57.y}) ✅")
+        else:
+            print(f"➤ Salah satu atau kedua sudut tidak lebih tinggi dari bibir bawah ❌")
+
+        print("\n➡️ Karena:")
+        print(f"Jarak mulut > {MOUTH_OPEN_THRESHOLD} piksel {'✅' if mouth_open else '❌'}")
+        if p48.y < p57.y and p54.y < p57.y:
+            print("Sudut bibir lebih tinggi dari bawah ✅")
+        else:
+            print("Sudut bibir lebih tinggi dari bawah ❌")
+
+        if mouth_open and is_smile:
+            print("\n➡️ Maka kondisi mulut: tersenyum dan terbuka 😄")
+        elif mouth_open and not is_smile:
+            print("\n➡️ Maka kondisi mulut: terbuka tanpa senyum 😐")
+        elif not mouth_open and is_smile:
+            print("\n➡️ Maka kondisi mulut: tersenyum tapi tidak terbuka 😊")
+        else:
+            print("\n➡️ Maka kondisi mulut: netral 😐")
+
+        # === Visualisasi di Gambar ===
         x, y, w, h = face.left(), face.top(), face.width(), face.height()
         cv2.rectangle(draw_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(draw_img, expression, (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        
-        total_faces = len(faces)
-        cv2.putText(draw_img, f"Total Wajah: {total_faces}", (10, 25),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-        # --- Gambar titik landmark dan nomornya ---
-        # Untuk menonaktifkan fitur ini, cukup beri komentar pada blok di bawah ini
         for i in range(68):
             px = landmarks.part(i).x
             py = landmarks.part(i).y
             cv2.circle(draw_img, (px, py), 2, (255, 0, 0), -1)
             cv2.putText(draw_img, str(i), (px + 2, py - 2), cv2.FONT_HERSHEY_PLAIN, 0.7, (0, 255, 255), 1)
 
-    # Tampilkan total wajah di pojok kiri atas
+    # --- Info Ringkas di Gambar ---
+    total_faces = len(faces)
+    cv2.putText(draw_img, f"Total Wajah: {total_faces}", (10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
+    if total_faces > 0:
+        info_y = 55
+        spacing = 23
+        info_lines = [
+            f"Left EAR      : {left_ear:.2f}",
+            f"Right EAR     : {right_ear:.2f}",
+            f"Avg EAR       : {avg_ear:.2f}",
+            f"Titik 51 (atas bibir)  : y = {top_lip_y}",
+            f"Titik 57 (bawah bibir) : y = {bottom_lip_y}",
+            f"Jarak bibir    : {mouth_distance:.2f} px {'> threshold' if mouth_open else '<= threshold'}",
+            f"Titik 48 y={left_corner_y} dan 54 y={right_corner_y}",
+            f"Selisih kiri: {left_corner_diff}, kanan: {right_corner_diff}",
+            f"→ Smile: {'Ya' if is_smile else 'Tidak'}",
+            f"Mulut Terbuka: {'Ya' if mouth_open else 'Tidak'}",
+            f"Ekspresi: {expression}",
+        ]
 
+        for i, line in enumerate(info_lines):
+            cv2.putText(draw_img, line, (10, info_y + spacing * i),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+
+    # Konversi BGR ke RGB jika pakai matplotlib
     draw_img = cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB)
     return draw_img
 
